@@ -1,0 +1,572 @@
+openapi: 3.0.0
+info:
+  title: Fantasy Football Reporting App
+  description: Takes API requests, creates and executes SQL, returns results
+  version: 1.0.0
+
+servers:
+  - url: https://localhost/api
+
+# Paths supported by the server application
+paths:
+  /get_teams:
+    get:
+      tags:
+        - get_teams
+      description: Return all teams
+      summary: Return all teams
+      operationId: db_service.get_teams
+      responses:
+        200:
+          description: Successful retrieval
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                      example: 1
+                    abbr:
+                      type: string
+                      example: "BOS"
+                    name:
+                      type: string
+                      example: "Red Sox"
+                    owner:
+                      type: string
+                      example: "Boston"
+  /search_players/{stub}:
+    get:
+      tags:
+        - search_players
+      summary: Search for players
+      description: Return all players whose names contain the search string
+      parameters:
+        - in: path
+          name: stub
+          schema:
+            type: string
+          required: true
+          description: Search string
+      operationId: db_service.search_players
+      responses:
+        200:
+          description: Successful retrieval
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    value:
+                      type: integer
+                      example: 1
+                    name:
+                      type: string
+                      example: "Andrew Benintendi"
+  /get_player_runs/{player_id}:
+    get:
+      tags:
+        - get_player_runs
+      summary: Get player's run stats
+      description: Return a player's runs/ab vs league avg runs/ab
+      parameters:
+        - in: path
+          name: player_id
+          schema:
+            type: integer
+          required: true
+          description: ID of the player requested
+      operationId: db_service.get_player_runs
+      responses:
+        200:
+          description: Successful retrieval
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      date:
+                        type: date
+                        example: "2019-03-28"
+                      player:
+                        type: number
+                        example: 3.2
+                      average:
+                        type: number
+                        example: 4.9
+  /get_player_home_runs/{player_id}:
+    get:
+      tags:
+        - get_player_home_runs
+      summary: Get player's home run stats
+      description: Return a player's hr/ab vs league avg hr/ab
+      parameters:
+        - in: path
+          name: player_id
+          schema:
+            type: integer
+          required: true
+          description: ID of the player requested
+      operationId: db_service.get_player_home_runs
+      responses:
+        200:
+          description: Successful retrieval
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      date:
+                        type: date
+                        example: "2019-03-28"
+                      player:
+                        type: number
+                        example: 3.2
+                      average:
+                        type: number
+                        example: 4.9
+  /get_player_rbi/{player_id}:
+    get:
+      tags:
+        - get_player_rbi
+      summary: Get player's rbi stats
+      description: Return a player's rbi/ab vs league avg rbi/ab
+      parameters:
+        - in: path
+          name: player_id
+          schema:
+            type: integer
+          required: true
+          description: ID of the player requested
+      operationId: db_service.get_player_rbi
+      responses:
+        200:
+          description: Successful retrieval
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      date:
+                        type: date
+                        example: "2019-03-28"
+                      player:
+                        type: number
+                        example: 3.2
+                      average:
+                        type: number
+                        example: 4.9
+  /get_player_obp/{player_id}:
+    get:
+      tags:
+        - get_player_obp
+      summary: Get player's OBP stats
+      description: Return a player's OBP vs league avg OBP
+      parameters:
+        - in: path
+          name: player_id
+          schema:
+            type: integer
+          required: true
+          description: ID of the player requested
+      operationId: db_service.get_player_obp
+      responses:
+        200:
+          description: Successful retrieval
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      date:
+                        type: date
+                        example: "2019-03-28"
+                      player:
+                        type: number
+                        example: 0.345
+                      average:
+                        type: number
+                        example: 0.424
+  /get_player_slg/{player_id}:
+    get:
+      tags:
+        - get_player_slg
+      summary: Get player's SLG stats
+      description: Return a player's SLG vs league avg OBP
+      parameters:
+        - in: path
+          name: player_id
+          schema:
+            type: integer
+          required: true
+          description: ID of the player requested
+      operationId: db_service.get_player_slg
+      responses:
+        200:
+          description: Successful retrieval
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      date:
+                        type: date
+                        example: "2019-03-28"
+                      player:
+                        type: number
+                        example: 0.345
+                      average:
+                        type: number
+                        example: 0.424
+  /get_player_wins/{player_id}:
+    get:
+      tags:
+        - get_player_wins
+      summary: Get player's win stats
+      description: Return a player's wins vs league avg wins per appearance
+      parameters:
+        - in: path
+          name: player_id
+          schema:
+            type: integer
+          required: true
+          description: ID of the player requested
+      operationId: db_service.get_player_wins
+      responses:
+        200:
+          description: Successful retrieval
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      date:
+                        type: date
+                        example: "2019-03-28"
+                      player:
+                        type: number
+                        example: 0.345
+                      average:
+                        type: number
+                        example: 0.424
+  /get_player_ks/{player_id}:
+    get:
+      tags:
+        - get_player_ks
+      summary: Get player's win stats
+      description: Return a player's Ks vs league avg Ks per 9 innings
+      parameters:
+        - in: path
+          name: player_id
+          schema:
+            type: integer
+          required: true
+          description: ID of the player requested
+      operationId: db_service.get_player_ks
+      responses:
+        200:
+          description: Successful retrieval
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      date:
+                        type: date
+                        example: "2019-03-28"
+                      player:
+                        type: number
+                        example: 0.345
+                      average:
+                        type: number
+                        example: 0.424
+  /get_team_runs/{team_id}:
+    get:
+      tags:
+        - get_team_runs
+      description: Return a season of runs vs league average for a given team
+      summary: Return a season of runs vs league average for a given team
+      parameters:
+        - in: path
+          name: team_id
+          schema:
+            type: integer
+          required: true
+          description: Numeric ID of the team requested
+      operationId: db_service.get_team_runs
+      responses:
+        200:
+          description: Successful retrieval
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      week:
+                        type: date
+                        example: "2019-03-28"
+                      team:
+                        type: number
+                        example: 3.2
+                      average:
+                        type: number
+                        example: 4.9
+  /get_stacked_score/{team_id}:
+    get:
+      tags:
+        - get_stacked_score
+      description: Total score for each player on a team, brokendown by active and bench points
+      summary: Total score for each player on a team, brokendown by active and bench points
+      parameters:
+        - in: path
+          name: team_id
+          schema:
+            type: integer
+          required: true
+          description: Numeric ID of the team requested
+      operationId: db_service.get_stacked_score
+      responses:
+        200:
+          description: Successful retrieval
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      player:
+                        type: string
+                        example: 'Steve Grogan'
+                      active:
+                        type: number
+                        example: 120.32
+                      bench:
+                        type: number
+                        example: 24.79
+  /get_stacked_score_by_position/{team_id}:
+    get:
+      tags:
+        - get_stacked_score_by_position
+      description: Total score for each player on a team, brokendown by active and bench points, grouped by position
+      summary: Total score for each player on a team, brokendown by active and bench points, grouped by position
+      parameters:
+        - in: path
+          name: team_id
+          schema:
+            type: integer
+          required: true
+          description: Numeric ID of the team requested
+      operationId: db_service.get_stacked_score_by_position
+      responses:
+        200:
+          description: Successful retrieval
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      player:
+                        type: string
+                        example: 'Steve Grogan'
+                      active:
+                        type: number
+                        example: 120.32
+                      bench:
+                        type: number
+                        example: 24.79
+  /get_player_score/{team_id}:
+    get:
+      tags:
+        - get_player_score
+      description: Total score for each player on a team
+      summary: Total score for each player on a team
+      parameters:
+        - in: path
+          name: team_id
+          schema:
+            type: integer
+          required: true
+          description: Numeric ID of the team requested
+      operationId: db_service.get_player_score
+      responses:
+        200:
+          description: Successful retrieval
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      player:
+                        type: string
+                        example: 'Drew Bledsoe'
+                      score:
+                        type: number
+                        example: 12.32
+  /get_active_player_score/{team_id}:
+    get:
+      tags:
+        - get_active_player_score
+      description: Total score for each active (non-benched) player on a team
+      summary: Total score for each active player on a team
+      parameters:
+        - in: path
+          name: team_id
+          schema:
+            type: integer
+          required: true
+          description: Numeric ID of the team requested
+      operationId: db_service.get_active_player_score
+      responses:
+        200:
+          description: Successful retrieval
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      player:
+                        type: string
+                        example: 'Tom Brady'
+                      score:
+                        type: number
+                        example: 12.32
+  /get_player_performance/{team_id}:
+    get:
+      tags:
+        - get_player_performance
+      description: Calculate the cumulative difference between projected and actual score for each player on a team
+      summary: Show how well each player on a team did
+      parameters:
+        - in: path
+          name: team_id
+          schema:
+            type: integer
+          required: true
+          description: Numeric ID of the team requested
+      operationId: db_service.get_player_performance
+      responses:
+        200:
+          description: Successful retrieval
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      player:
+                        type: string
+                        example: 'Tom Brady'
+                      performance:
+                        type: number
+                        example: 12.32
+  /get_season_score:
+    get:
+      tags:
+        - get_season_score
+      description: Cumlative team scores over the season
+      summary: Cumlative team scores over the season
+      operationId: db_service.get_season_score
+      responses:
+        200:
+          description: Successful retrieval
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      week:
+                        type: integer
+                        example: 1
+                      player_1:
+                        type: number
+                        example: 102.32
+                      player_2:
+                        type: number
+                        example: 84.82
+  /get_best_season:
+    get:
+      tags:
+        - get_best_season
+      description: Return a breakdown, by week and manager, of how close each team was to their best possible score
+      summary: Return management stats for all teams for the season
+      operationId: db_service.get_best_season
+      responses:
+        200:
+          description: Successful retrieval
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      week:
+                        type: integer
+                        example: 1
+                      player_1:
+                        type: number
+                        example: 12.32
+                      player_2:
+                        type: number
+                        example: 8.23

@@ -1,0 +1,380 @@
+import connexion
+from decimal import Decimal
+from flask import Flask, jsonify
+import psycopg2
+import requests
+import sys
+from time import sleep
+
+from pinger import Pinger
+from utils import get_logger, RepeatedTimer
+
+log = get_logger(__name__)
+
+
+if __name__ == '__main__':
+	app = connexion.App(__name__, specification_dir='./openapi')
+
+def get_conn():
+	return psycopg2.connect(
+		host='localhost',
+		dbname='fant_b',
+		user='robmo',
+		password=''
+	)
+
+def search(body):
+	conn = get_conn()
+	cur = conn.cursor()
+    
+	name = body['name'].lower()
+
+	sql = "SELECT yahoo_id, name FROM data_player WHERE LOWER(name) LIKE '%{}%';".format(name)
+	print(sql)
+	cur.execute(sql)
+
+	resp = []
+	for tpl in cur.fetchall():
+		dct = {
+			"id": tpl[0],
+			"name": tpl[1]
+		}
+		resp.append(dct)
+
+	cur.close()
+	conn.close()
+	return jsonify(cur.fetchall())
+
+def execute_sql(sql):
+	conn = get_conn()
+	cur = conn.cursor()
+    
+	cur.execute(sql)
+
+	return cur, conn
+
+#@app.route('/api/get_teams')
+
+def get_teams_list():
+	cursor, connection = execute_sql(
+		"SELECT id, name, owner " \
+		"FROM ff_teams " \
+		"ORDER BY id;"
+	)
+
+	response = psychopg_to_list(fields=['id', 'name', 'owner'], cursor=cursor)
+	cursor.close()
+	connection.close()
+	return response
+
+def get_teams():
+	cursor, connection = execute_sql(		
+		"SELECT id, abbr, city, name " \
+		"FROM team " \
+		"ORDER BY abbr;"
+	)
+
+	response = psychopg_to_json(fields=['id', 'abbr', 'city', 'name'], cursor=cursor)
+	cursor.close()
+	connection.close()
+	return response
+
+##################
+# player graphs
+##################
+
+def get_team_season(team_id):
+
+	sql = \
+		"SELECT g.week, g.score, g.projected, g.best, g2.score AS opponent_score, t.name AS opponent_name " \
+		"FROM ff_games g " \
+		  "JOIN ff_games g2 ON g2.week = g.week AND g2.self_id = g.opponent_id " \
+		  "JOIN ff_teams t ON t.id = g.opponent_id " \
+		"WHERE g.self_id = {} " \
+		"ORDER BY g.week;".format(team_id)
+
+	cursor, connection = execute_sql(sql)
+
+	response = psychopg_to_list(fields=['week', 'score', 'projected', 'best', 'opponent_score', 'opponent_name'], cursor=cursor)
+
+	res2 = [['Week', 'Projected', 'Score', 'Best', 'Opponent']]
+	for res in response:
+		res2.append([res['week'], res['projected'], res['score'], res['best'], res['opponent_score']])
+
+	cursor.close()
+	connection.close()
+	log.debug(jsonify(res2))
+	return jsonify(res2)
+
+
+def get_stacked_score(team_id):
+
+	sql = \
+		"SELECT p.name, p.position, " \
+		  "SUM(CASE WHEN pg.position = 'BN' THEN 0 ELSE pg.score END) AS active_score, " \
+		  "SUM(CASE WHEN pg.position != 'BN' THEN 0 ELSE pg.score END) AS bench_score, " \
+		  "SUM(pg.score) AS score " \
+		"FROM ff_player_games pg " \
+			"JOIN ff_players p ON p.id = pg.player_id " \
+		"WHERE team_id = {} " \
+		"GROUP BY 1,2 " \
+		"ORDER BY 3 desc;".format(team_id)
+	cursor, connection = execute_sql(sql)
+
+	results = psychopg_to_list(fields=['name', 'position', 'active_score', 'bench_score', 'total'], cursor=cursor)
+	response = [['Player', 'Active', 'Bench']]
+	for res in results:
+		response.append(['{} ({})'.format(res['name'], res['position']), res['active_score'], res['bench_score']])
+	cursor.close()
+	connection.close()
+	return jsonify(response)
+
+
+def get_stacked_score_by_position(team_id):
+
+	sql = \
+		"SELECT p.name, p.position, " \
+		  "SUM(CASE WHEN pg.position = 'BN' THEN 0 ELSE pg.score END) AS active_score, " \
+		  "SUM(CASE WHEN pg.position != 'BN' THEN 0 ELSE pg.score END) AS bench_score, " \
+		  "SUM(pg.score) AS score " \
+		"FROM ff_player_games pg " \
+			"JOIN ff_players p ON p.id = pg.player_id " \
+		"WHERE team_id = {} " \
+		"GROUP BY 1,2 " \
+		"ORDER BY 3 desc;".format(team_id)
+	cursor, connection = execute_sql(sql)
+
+	results = psychopg_to_list(fields=['name', 'position', 'active_score', 'bench_score', 'total'], cursor=cursor)
+	response = [['Player', 'Active', 'Bench']]
+	positions = ['QB', 'WR', 'RB', 'TE', 'DEF', 'K']
+	for pos in positions:
+		for res in results:
+			if res['position'] != pos:
+				continue
+			response.append(['{} ({})'.format(res['name'], res['position']), res['active_score'], res['bench_score']])
+		if pos != 'K':
+			response.append(['', 0, 0])
+	cursor.close()
+	connection.close()
+	return jsonify(response)
+
+
+def get_player_score(team_id):
+
+	sql = \
+		"SELECT p.name, p.position, SUM(pg.score) AS score " \
+		"FROM ff_player_games pg " \
+			"JOIN ff_players p ON p.id = pg.player_id " \
+		"WHERE team_id = {} " \
+		"GROUP BY 1,2 " \
+		"ORDER BY 3 desc;".format(team_id)
+	cursor, connection = execute_sql(sql)
+
+	results = psychopg_to_list(fields=['name', 'position', 'score'], cursor=cursor)
+	response = [['Player', 'Score']]
+	for res in results:
+		response.append(['{} ({})'.format(res['name'], res['position']), res['score']])
+	cursor.close()
+	connection.close()
+	return jsonify(response)
+
+
+def get_active_player_score(team_id):
+
+	sql = \
+		"SELECT p.name, p.position, SUM(pg.score) AS score " \
+		"FROM ff_player_games pg " \
+			"JOIN ff_players p ON p.id = pg.player_id " \
+		"WHERE team_id = {} " \
+		  "AND pg.position != 'BN' " \
+		"GROUP BY 1,2 " \
+		"ORDER BY 3 desc;".format(team_id)
+	cursor, connection = execute_sql(sql)
+
+	results = psychopg_to_list(fields=['name', 'position', 'score'], cursor=cursor)
+	response = [['Player', 'Score']]
+	for res in results:
+		response.append(['{} ({})'.format(res['name'], res['position']), res['score']])
+	cursor.close()
+	connection.close()
+	return jsonify(response)
+
+
+def get_player_performance(team_id):
+
+	sql = \
+		"SELECT p.name, p.position, SUM(pg.score - pg.projected) " \
+		"FROM ff_player_games pg " \
+			"JOIN ff_players p ON p.id = pg.player_id " \
+		"WHERE team_id = {} " \
+		"GROUP BY 1,2 " \
+		"ORDER BY 3 desc;".format(team_id)
+	cursor, connection = execute_sql(sql)
+
+	results = psychopg_to_list(fields=['name', 'position', 'performance'], cursor=cursor)
+	response = [['Player', 'Performance']]
+	for res in results:
+		response.append(['{} ({})'.format(res['name'], res['position']), res['performance']])
+	cursor.close()
+	connection.close()
+	return jsonify(response)
+
+
+##################
+# league graphs
+##################
+
+def get_best_season():
+
+	# get all teams and initialize response
+
+	sql = \
+		"SELECT id, name " \
+		"FROM ff_teams " \
+		"ORDER BY id;"
+
+	cursor, connection = execute_sql(sql)
+
+	results = psychopg_to_list(fields=['id', 'name'], cursor=cursor)
+	lst = ['Week']
+	for res in results:
+		lst.append(res['name'])
+	response = [lst]
+
+	# now get our data, can't go past week 14 coz of playoffs
+
+	sql = \
+		"SELECT g.week, g.self_id, g.best - g.score AS delta " \
+		"FROM ff_games g " \
+		"WHERE g.week < 15 " \
+		"ORDER BY g.week, g.self_id;"
+
+	cursor.execute(sql)
+
+	results = psychopg_to_list(fields=['week', 'self_id', 'delta'], cursor=cursor)
+
+	# one dummy position at 0
+	cum = [Decimal(0), Decimal(0), Decimal(0), Decimal(0), Decimal(0), Decimal(0), Decimal(0), Decimal(0), Decimal(0), Decimal(0), Decimal(0)]
+	cur_week = 0
+
+	for res in results:
+		if res['week'] != cur_week:
+			if cur_week > 0:
+				response.append(lst)
+			cur_week = res['week']
+			lst = [cur_week]
+		cum[res['self_id']] += res['delta']
+		lst.append(cum[res['self_id']])
+
+	response.append(lst)
+	cursor.close()
+	connection.close()
+	log.debug(jsonify(response))
+	return jsonify(response)
+
+
+def get_season_score():
+
+	teams = get_teams_list()
+	lst = ['Week']
+	for res in teams:
+		lst.append(res['name'])
+	response = [lst]
+
+	# initialize values
+	for i in range(1, 17):
+		response.append([i, Decimal(0), Decimal(0), Decimal(0), Decimal(0), Decimal(0), Decimal(0), Decimal(0), 
+			Decimal(0), Decimal(0), Decimal(0)])
+
+	sql = \
+		"SELECT g.week, g.self_id, g.score " \
+		"FROM ff_games g " \
+		"ORDER BY g.week, g.self_id;"
+
+	cursor, connection = execute_sql(sql)
+
+	results = psychopg_to_list(fields=['week', 'self_id', 'delta'], cursor=cursor)
+
+	# one dummy position at 0
+	# cum = [Decimal(0), Decimal(0), Decimal(0), Decimal(0), Decimal(0), Decimal(0), Decimal(0), 
+	# 	Decimal(0), Decimal(0), Decimal(0), Decimal(0)]
+	cur_week = 0
+
+	for res in results:
+		# if res['week'] != cur_week:
+		# 	if cur_week > 0:
+		# 		response.append(lst)
+		# 	cur_week = res['week']
+		# 	lst = [cur_week]
+		#cum[res['self_id']] += res['delta']
+
+		if res['week'] != cur_week:
+			if res['week'] > 1:
+				for i in range(1, len(teams) + 1):
+					response[res['week']][i] = response[res['week'] - 1][i]
+			cur_week = res['week']
+
+		response[res['week']][res['self_id']] += res['delta']
+
+
+		# lst.append(cum[res['self_id']])
+
+	response.append(lst)
+	cursor.close()
+	connection.close()
+	log.debug(jsonify(response))
+	return jsonify(response)
+
+
+def psychopg_to_list(fields, cursor):
+	response = []
+	for tpl in cursor.fetchall():
+		entry = {}
+		for i in range(0, len(fields)):
+			entry[fields[i]] = tpl[i]
+		response.append(entry)
+	return response
+
+
+def psychopg_to_json(fields, cursor):
+	response = psychopg_to_list(fields, cursor)
+	return jsonify(response)
+
+log.debug('__name__ : {}'.format(__name__))
+
+if __name__ == '__main__':
+
+	monitor_port = 5000
+
+	app_port = 5001
+	if len(sys.argv) == 2:
+		app_port = sys.argv[1]
+	interval = 300
+	log.info('PORT {} ARGS {}'.format(app_port, len(sys.argv)))
+	log.info(sys.argv)
+
+	pinger = Pinger(
+		app_name='reporting',
+		app_host='127.0.0.1', 
+		app_port=app_port,
+		monitor_host='127.0.0.1', 
+		monitor_port=monitor_port,
+		interval=interval
+	)
+	rt = RepeatedTimer(interval=interval, function=pinger.ping)
+
+	try:
+		# app = Flask(__name__)
+		# app.run(host='127.0.0.1', port=5001)
+
+		#app = connexion.App(__name__, specification_dir='./openapi')
+		log.debug('add_api : {}'.format(app))
+		app.add_api('swagger.yml')
+		log.debug('ping : {}'.format(app))
+		# NOTE: debug=True causes the restart
+		pinger.ping()
+		log.debug('run : {}'.format(app))
+		app.run(host='127.0.0.1', port=app_port, debug=False)
+	finally:
+		pinger.shutdown()
+		rt.stop()
